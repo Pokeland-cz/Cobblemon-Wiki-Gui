@@ -1,9 +1,13 @@
 package com.luismaia.util
 
+import com.cobblemon.mod.common.api.conditional.RegistryLikeIdentifierCondition
+import com.cobblemon.mod.common.api.conditional.RegistryLikeTagCondition
 import com.cobblemon.mod.common.api.drop.ItemDropEntry
+import com.cobblemon.mod.common.api.moves.Move
 import com.cobblemon.mod.common.api.pokemon.evolution.Evolution
 import com.cobblemon.mod.common.api.pokemon.stats.Stats
 import com.cobblemon.mod.common.api.spawning.CobblemonSpawnPools
+import com.cobblemon.mod.common.api.spawning.condition.MoonPhase
 import com.cobblemon.mod.common.api.spawning.detail.PokemonSpawnDetail
 import com.cobblemon.mod.common.api.spawning.detail.SpawnDetail
 import com.cobblemon.mod.common.api.text.aqua
@@ -16,6 +20,7 @@ import com.cobblemon.mod.common.util.asTranslated
 import com.luismaia.CobblemonWikiGui
 import com.luismaia.config.CobblemonWikiGuiConfig
 
+import net.minecraft.predicate.NumberRange
 import net.minecraft.text.MutableText
 import net.minecraft.text.Style
 import net.minecraft.text.Text
@@ -24,6 +29,26 @@ import net.minecraft.util.Formatting
 import net.minecraft.world.World
 import kotlin.math.roundToInt
 
+import com.cobblemon.mod.common.pokemon.evolution.requirements.LevelRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.FriendshipRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.UseMoveRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.AnyRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.HeldItemRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.TimeRangeRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.BattleCriticalHitsRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.BiomeRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.BlocksTraveledRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.DamageTakenRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.DefeatRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.MoonPhaseRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.MoveSetRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.MoveTypeRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.PartyMemberRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.PokemonPropertiesRequirement
+import com.cobblemon.mod.common.pokemon.evolution.requirements.RecoilRequirement
+import net.minecraft.item.ItemStack
+
+import java.util.stream.Collectors
 
 object CobblemonUtil {
 
@@ -49,14 +74,70 @@ object CobblemonUtil {
     }
 
     private fun getEvolutions(pokemon: Species): MutableText {
-        if(pokemon.evolutions.isEmpty()){
+        if (pokemon.evolutions.isEmpty()) {
             return "X".text()
         }
-        val payload = pokemon.evolutions.map { it: Evolution ->
-            it.result.species!!.split(' ')
-            .joinToString(" ") { it.replaceFirstChar(Char::uppercaseChar) } }.reduce { acc, next -> acc.plus("/").plus(next) }
+        val payload = pokemon.evolutions.joinToString("/") { evolution: Evolution ->
+            val speciesName = evolution.result.species?.split(' ')
+                ?.joinToString(" ") { it.replaceFirstChar(Char::uppercaseChar) }
+                ?: "Unknown Species"
+            val requirementsText = if (evolution.requirements.isEmpty()) {
+                "viz Pokeland wiki"
+            } else {
+                evolution.requirements.joinToString(", ") { req ->
+                    when (req) {
+                        is AnyRequirement -> "Special Condition"
+                        is BattleCriticalHitsRequirement -> "Battle Critical Hits: ${req.amount}"
+                        is BiomeRequirement -> "Biome: viz Pokeland wiki}"
+                        is BlocksTraveledRequirement -> "Blocks Traveled: ${req.amount}"
+                        is DamageTakenRequirement -> "Damage Taken: ${req.amount}"
+                        is DefeatRequirement -> "Defeat: ${req.amount}x ${req.target.species?.toString() ?: "Unknown"}"
+                        is FriendshipRequirement -> "Friendship: ${req.amount}"
+                        is HeldItemRequirement -> {
+                            val predicate = req.itemCondition
+                            val baseText = predicate.items.map { items ->
+                                items.getTagKey().map { tag -> "Held Item Tag: ${tag.id()}" }
+                                    .orElseGet {
+                                        val itemNames = items.stream()
+                                            .map { ItemStack(it.value()).name.string }
+                                            .collect(Collectors.joining(" or "))
+                                        "Held Item: $itemNames"
+                                    }
+                            }.orElse("Held Item: Unknown")
+                            if (predicate.count != NumberRange.IntRange.ANY) {
+                                "$baseText (Count: ${predicate.count})"
+                            } else {
+                                baseText
+                            }
+                        }
+                        is LevelRequirement -> "Level: ${req.minLevel}"
+                        is MoonPhaseRequirement -> {
+                            when (req.moonPhase) {
+                                MoonPhase.FULL_MOON -> "Moon Phase: Full Moon"
+                                MoonPhase.WANING_GIBBOUS -> "Moon Phase: Waning Gibbous"
+                                MoonPhase.THIRD_QUARTER -> "Moon Phase: Third Quarter"
+                                MoonPhase.WANING_CRESCENT -> "Moon Phase: Waning Crescent"
+                                MoonPhase.NEW_MOON -> "Moon Phase: New Moon"
+                                MoonPhase.WAXING_CRESCENT -> "Moon Phase: Waxing Crescent"
+                                MoonPhase.FIRST_QUARTER -> "Moon Phase: First Quarter"
+                                MoonPhase.WAXING_GIBBOUS -> "Moon Phase: Waxing Gibbous"
+                            }
+                        }
+                        is MoveSetRequirement -> "Have move: ${req.move.name}"
+                        is MoveTypeRequirement -> "Have move type: ${req.type.name}"
+                        is PartyMemberRequirement -> "Party member: ${req.target.asString(", ")}"
+                        is PokemonPropertiesRequirement -> "Parametr: ${req.target.asString(", ")}"
+                        is RecoilRequirement -> "Recoil damage: ${req.amount}"
+                        is TimeRangeRequirement -> "Time: viz Pokeland wiki}"
+                        is UseMoveRequirement -> "Use move: ${req.move.name} ${req.amount}x"
+                        else -> req.javaClass.simpleName.replace("Requirement", "")
+                    }
+                }
+            }
+            "$speciesName ($requirementsText)"
+        }
 
-        return payload.aqua()
+        return payload.text().aqua()
     }
 
     private fun getCatchRate(pokemon: Species): Text {
