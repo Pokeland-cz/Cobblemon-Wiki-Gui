@@ -23,6 +23,9 @@ repositories {
 		name = "nucleoid"
 	}
 
+	// Add JitPack repository
+	maven("https://jitpack.io")
+
 }
 
 fabricApi {
@@ -41,8 +44,8 @@ dependencies {
 	// Fabric Kotlin
 	modImplementation("net.fabricmc:fabric-language-kotlin:${property("fabric_kotlin_version")}")
 
-	// Cobblemon
-	modImplementation("com.cobblemon:fabric:${property("cobblemon_version")}")
+	// Cobblemon from GitLab via JitPack
+	modImplementation("com.gitlab.aglarcz.cobblemon:fabric:c1ce5491")
 
 	// Permission API
 	modImplementation("me.lucko:fabric-permissions-api:${property("permissions_api_version")}")
