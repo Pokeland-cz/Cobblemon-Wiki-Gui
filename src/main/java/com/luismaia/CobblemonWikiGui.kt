@@ -15,7 +15,7 @@ object CobblemonWikiGui {
     val MOD_ID: String = "cobblemon-wiki-gui"
     val LOGGER: Logger = LoggerFactory.getLogger(MOD_ID)
     val MOD_NAME: String = "Cobblemon Wiki Gui"
-    val VERSION: String = "1.1.0"
+    val VERSION: String = "1.2.0"
     private var instance : CobblemonWikiGui? = null
 
     private var config : CobblemonWikiGuiConfig? = null
